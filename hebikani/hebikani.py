@@ -229,6 +229,24 @@ class Cache:
     def set_subject(cls, subject):
         cls.subjects[subject.id] = subject
 
+def getch(question: str):
+    if system() == "Windows":
+        return(input(question))
+    
+    import termios
+    import sys, tty
+    print(question + " ")
+    def _getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+    return _getch()
+
 
 class ClientOptions:
     """Client options."""
@@ -1208,6 +1226,7 @@ class ReviewSession(Session):
         self.nb_completed_subjects = 0
         self.nb_session_completed_subjects = 0
         self.queue = QuestionQueue()
+        self.auto_advance = False
 
     def start(self):
         """Start the reviews.
@@ -1264,6 +1283,11 @@ class ReviewSession(Session):
             self.process_subject(question.subject)
 
             self.ask_audio(question)
+
+            if(self.auto_advance):
+                self.auto_advance=False
+                continue
+
             input("\nPress enter to continue...")
 
         print("\n\nReviews are done!")
@@ -1287,7 +1311,8 @@ class ReviewSession(Session):
                 "Your answer is a bit off.",
                 f"The correct answer is: {question.answer_values}",
             )
-            if input("Do you want to validate your answer? (Y/n) ") in [
+            self.auto_advance = True
+            if getch("Do you want to validate your answer and continue? (Y/n) ") in [
                 "n",
                 "N",
             ]:
@@ -1321,8 +1346,8 @@ class ReviewSession(Session):
             ) or (
                 self.client.options.allow_cheats
             ):
-                time.sleep(0.5)
-                answer_was_correct = input("My answer was correct [y/N] ")
+                answer_was_correct = getch("My answer was correct [y/N] and continue")
+                self.auto_advance = True
             else:
                 answer_was_correct = "N"
 
@@ -1414,17 +1439,27 @@ class ReviewSession(Session):
             question (Question): The question.
         """
         if (
-            not self.client.options.silent
-            and question.subject.audios
-            and question.question_type == QuestionType.READING
-            and (
-                self.client.options.autoplay
-                or input("\nWould you like to hear the audio? [y/N] ") in ["y", "Y"]
-            )
+            self.client.options.silent
         ):
-            audio = self.select_audio(question.subject.audios)
-            audio.play()
-            self.last_audio_played = audio
+            return
+    
+        if not (
+            question.subject.audios
+            and question.question_type == QuestionType.READING
+        ):
+            return
+        
+        if( 
+            not self.client.options.autoplay
+        ):
+            play_audio_was_cancelled = getch("Would you like to hear the audio? [y/N] ") not in ["y", "Y"]
+            if (play_audio_was_cancelled):
+                self.auto_advance = True
+                return
+        
+        audio = self.select_audio(question.subject.audios)
+        audio.play()
+        self.last_audio_played = audio
 
 
 class LessonSession(Session):
