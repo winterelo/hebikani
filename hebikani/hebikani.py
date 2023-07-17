@@ -244,6 +244,7 @@ class ClientOptions:
         display_mnemonics: bool = False,
         double_check: bool = False,
         test_ids: list = None,
+        allow_cheats: bool = False
     ):
         """Initialize the client options.
 
@@ -255,6 +256,7 @@ class ClientOptions:
             dry_run (bool): Whether to run in dry run mode.
             limit (int): The number of subjects to review.
             display_mnemonics (bool): Whether to display mnemonics.
+            allow_cheats (bool): Enable user to determine correctness of answer
         """
         self.autoplay = autoplay
         self.silent = silent
@@ -265,6 +267,7 @@ class ClientOptions:
         self.display_mnemonics = display_mnemonics
         self.double_check = double_check
         self.test_ids = test_ids
+        self.allow_cheats = allow_cheats
 
 
 class Client:
@@ -1315,6 +1318,8 @@ class ReviewSession(Session):
             if (
                 question.question_type == QuestionType.MEANING
                 and self.client.options.double_check
+            ) or (
+                self.client.options.allow_cheats
             ):
                 time.sleep(0.5)
                 answer_was_correct = input("My answer was correct [y/N] ")
@@ -1701,6 +1706,12 @@ def main():
         "--double-check", "--db", action="store_true", default=False, help=text
     )
 
+    text = "Allow user to determine whether incorrect answer should pass."
+
+    parser.add_argument(
+        "--allow-cheats", action="store_true", default=False, help=text
+    )
+
     # Extract the arguments from the parser.
 
     text = "Test a specific lessons or reviews using the subject ids. E.g (41,50,200)"
@@ -1721,7 +1732,8 @@ def main():
         limit=args.limit,
         display_mnemonics=args.mnemonics,
         double_check=args.double_check,
-        test_ids=list(map(int, args.test_ids.split(","))) if args.test_ids else [],
+        test_ids=list(map(int, args.test_ids.split(","))) if args.test_ids else [],,
+        allow_cheats=args.allow_cheats
     )
 
     client = Client(args.api_key, options=client_options)
