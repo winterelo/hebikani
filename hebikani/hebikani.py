@@ -262,7 +262,8 @@ class ClientOptions:
         display_mnemonics: bool = False,
         double_check: bool = False,
         test_ids: list = None,
-        allow_cheats: bool = False
+        allow_cheats: bool = False,
+        full_color: bool = False
     ):
         """Initialize the client options.
 
@@ -286,6 +287,7 @@ class ClientOptions:
         self.double_check = double_check
         self.test_ids = test_ids
         self.allow_cheats = allow_cheats
+        self.full_color = full_color
 
 
 class Client:
@@ -1021,6 +1023,25 @@ class Subject(APIObject):
             List[int]: The component subject ids.
         """
         return self.data["data"].get("component_subject_ids", [])
+    
+    def print_characters(self, full_color: bool = False):
+        if not full_color:
+            print("  " + self.characters + "\n")
+            return
+        
+        def ansi_back(r, g, b):
+            return "\033[48;2;"+str(r)+";"+str(g)+";"+str(b)+"m"
+        
+        def ansi_reset():
+            return "\033[0m"
+        
+        item_colors  ={
+            "radical":ansi_back(0, 0xaa, 0xff),
+            "kanji":ansi_back(0xff, 0, 0xaa),
+            "vocabulary":ansi_back(0xaa, 0, 0xff),
+        }
+        
+        print(f"{item_colors[self.object]}  {self.characters}  {ansi_reset()}\n")
 
 
 class Question:
@@ -1268,7 +1289,7 @@ class ReviewSession(Session):
                 f"Total Reviews {self.nb_completed_subjects}/{self.nb_subjects}",
                 f"- {correct_rate}:\n",
             )
-            print(question.subject.characters + "\n")
+            question.subject.print_characters(self.client.options.full_color)
             answer_type = None
 
             """We use a loop in case the user answers is not wrong but not acceptable
@@ -1741,10 +1762,16 @@ def main():
         "--double-check", "--db", action="store_true", default=False, help=text
     )
 
-    text = "Allow user to determine whether incorrect answer should pass."
+    text = "Allow user to determine whether incorrect answer should pass. (default: False)"
 
     parser.add_argument(
         "--allow-cheats", action="store_true", default=False, help=text
+    )
+
+    text = "Print questions with full color background, depending on type.(default: False)"
+
+    parser.add_argument(
+        "--full-color", action="store_true", default=False, help=text
     )
 
     # Extract the arguments from the parser.
@@ -1768,7 +1795,8 @@ def main():
         display_mnemonics=args.mnemonics,
         double_check=args.double_check,
         test_ids=list(map(int, args.test_ids.split(","))) if args.test_ids else [],,
-        allow_cheats=args.allow_cheats
+        allow_cheats=args.allow_cheats,
+        full_color=args.full_color
     )
 
     client = Client(args.api_key, options=client_options)
